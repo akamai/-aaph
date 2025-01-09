@@ -1,25 +1,21 @@
 ## Deploy AAPH with lua plguin for nginx ingress controller
 
 ----------
+### Prerequisite 
+1. Registration token from Akamai ACC 
+2. Docker container registry password 
+
 ### Deployment steps
 Clone or copy this repo 
 ```shell
-#development 
-git clone ssh://git@git.source.akamai.com:7999/owaap/owaap-nginx-ingress-controller.git 
-
-#staging 
-git clone -b release/staging ssh://git@git.source.akamai.com:7999/owaap/owaap-nginx-ingress-controller.git 
-
-#production
-git clone -b release/production ssh://git@git.source.akamai.com:7999/owaap/owaap-nginx-ingress-controller.git 
+git clone https://github.com/akamai/aaph.git
 ```
 
 Update aaph-values.yaml with correct image and resource allocation
 
 Run script to install or upgrade aaph in k8s
 ```shell
-./deploy-aaph-lua.sh -f aaph-values.yaml -r ingress-nginx  -t <registration-token>
-
+./deploy-aaph-lua.sh -f aaph-values.yaml -l aaph.lua -t <token> -p  <docker repo password> -r ingress-nginx --install-origin -v
 use -v for verbose output
 use -k to merge new kubeconfig
 ```
