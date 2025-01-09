@@ -1,0 +1,89 @@
+controller:
+  service:
+    annotations:
+      service.beta.kubernetes.io/linode-loadbalancer-throttle: 20
+      service.beta.kubernetes.io/linode-loadbalancer-proxy-protocol: "v2"
+      service.beta.kubernetes.io/linode-loadbalancer-default-proxy-protocol: "v2"
+      service.beta.kubernetes.io/linode-loadbalancer-hostname-only-ingress: "true"
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  config:
+    location-snippet: |
+          access_by_lua_file /etc/nginx/lua/aaph.lua;
+    use-forwarded-headers: "true"
+    use-proxy-protocol: "true"
+    compute-full-forwarded-for: "true"
+
+  extraVolumeMounts:
+    - name: aaph-lua-plugin
+      mountPath: /etc/nginx/lua/aaph.lua
+      subPath: aaph.lua
+    - name: aaph-unix-socket
+      mountPath: /var/aaph
+
+
+  # Loads sidecar aaph Agent
+  extraContainers:
+    - name: aaph-protector
+      image: aaphybrid.azurecr.io/production/1.0/aaph-protector:v1.0.0-beta.0
+      imagePullPolicy: Always
+      resources:
+        requests:
+          memory: 1Gi
+          cpu: 1000m
+        limits:
+          memory: 1Gi
+          cpu: 1000m
+      env:
+        - name: HTTP_PROXY
+          value: "" # http proxy url format: "http://username:password@proxy_host:proxy_port"
+        - name: HTTPS_PROXY
+          value: "" # http proxy url format: "https://username:password@proxy_host:proxy_port"
+        - name: NO_PROXY
+          value: "" # excluded hostnames
+        - name: PROXY_TRUSTED_CA
+          value: "" # base64 encoded alternative CA certificate content in PEM format
+        - name: REGISTRATION_CODE
+          valueFrom:
+            secretKeyRef:
+              name: aaph-token
+              key: REGISTRATION_CODE
+        - name: MGMT_HOST_URL
+          value: "https://mgmt.aaph-akamai.com"
+        - name: "REGISTRATION_HOST_URL"
+          value: "https://registration.aaph-akamai.com"
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+
+      volumeMounts:
+        - name: aaph-unix-socket
+          mountPath: /var/aaph
+
+  terminationGracePeriodSeconds: 30
+
+  extraVolumes:
+    - name: aaph-lua-plugin
+      configMap:
+        name: aaph-lua-plugin-files
+    - name: aaph-unix-socket
+      emptyDir: {}
+
+imagePullSecrets:
+  - name: aaph-acr

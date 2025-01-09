@@ -1,0 +1,119 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-backend
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+#      nodeSelector:
+#        test-node: origin
+      containers:
+        - name: nginx
+          image: nginx
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "100m"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: main-config-volume
+              mountPath: /etc/nginx
+            - name: app-config-volume
+              mountPath: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 3
+      volumes:
+        - name: main-config-volume
+          configMap:
+            name: main-conf
+        - name: app-config-volume
+          configMap:
+            name: app-conf
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: main-conf
+data:
+  nginx.conf: |+
+    user nginx;
+    worker_processes auto;
+    worker_rlimit_nofile 102400;
+    error_log  /var/log/nginx/error.log notice;
+    pid        /var/run/nginx.pid;
+    
+    events {
+        worker_connections  100000;
+    }
+    
+    http {
+    
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+    
+        sendfile        on;
+        tcp_nodelay on;
+    
+        access_log off;
+    
+        include /etc/nginx/conf.d/*.conf;
+    }
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-conf
+data:
+  app.conf: "server {listen 8080;location / {default_type text/plain;expires -1;return 200 'Server address: $server_addr:$server_port\nServer name:$hostname\nDate: $time_local\nURI: $request_method:$request_uri\nREQ Length:$request_length\nRequest ID: $request_id\n';}location /healthz {return 200 'I am happy and healthy :)';}}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-svc
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: origin-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # nginx.ingress.kubernetes.io/proxy-body-size: 2m
+    nginx.ingress.kubernetes.io/client-body-buffer-size: 1m  # default is 16kb
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: aaph.backend.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-svc
+                port:
+                  number: 80
