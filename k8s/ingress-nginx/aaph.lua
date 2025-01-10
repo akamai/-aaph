@@ -1,5 +1,6 @@
 local ngx = ngx
 local http = require "resty.http"
+local _M = {}
 
 -- Default maximum allowed body size
 local MAX_BODY_SIZE = 64 * 1024  -- in Bytes
@@ -76,7 +77,7 @@ local function read_request_body(method, content_length)
     return nil
 end
 
-function check_access()
+function _M.check_aaph_access()
     local start_time = ngx.now()
     ngx.log(ngx.DEBUG, "aaph check request: ")
 
@@ -138,4 +139,4 @@ function check_access()
     ngx.log(ngx.INFO, "Request ID: ", ngx.var.request_id," | time taken by aaph rewrite: ", ngx.now() - start_time)
 end
 
-check_access()
+return _M.check_aaph_access()
