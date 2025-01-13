@@ -32,7 +32,7 @@ controller:
   # Loads sidecar aaph Agent
   extraContainers:
     - name: aaph-protector
-      image: aaphybrid.azurecr.io/production/1.0/aaph-protector:v1.0.0-beta.0
+      image: aaphybrid.azurecr.io/production/1.0/aaph-protector:v1.0.1
       imagePullPolicy: Always
       resources:
         requests:
